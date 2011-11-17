@@ -3,7 +3,7 @@ require 'thread'
 require 'uri'
 
 require 'rubygems'
-require 'builder'
+require 'nokogiri'
 require 'exifr'
 require 'mp3info'
 require 'UPnP/service'
@@ -13,7 +13,7 @@ require 'UPnP/service'
 
 class UPnP::Service::ContentDirectory < UPnP::Service
 
-  VERSION = '1.0'
+  VERSION = '1.1.0'
 
   ##
   # DLNA profile mappings.  Give me $500 so I can figure out what this means.
@@ -320,17 +320,18 @@ class UPnP::Service::ContentDirectory < UPnP::Service
   # Builds a DIDL-Lite result document, yielding a Builder::XmlMarkup object.
 
   def make_result
-    result = []
 
-    builder = Builder::XmlMarkup.new :indent => 2, :target => result
-    builder.tag! 'DIDL-Lite',
-                 'xmlns' => 'urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/',
+    builder = Nokogiri::XML::Builder.new do |xml|
+      xml.send(:'DIDL-Lite',
+               { 'xmlns' => 'urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/',
                  'xmlns:dc' => 'http://purl.org/dc/elements/1.1/',
-                 'xmlns:upnp' => 'urn:schemas-upnp-org:metadata-1-0/upnp/' do
-      yield builder
+                 'xmlns:upnp' => 'urn:schemas-upnp-org:metadata-1-0/upnp/'
+               }) do
+        yield xml
+      end
     end
 
-    result.join
+    builder.to_xml
   end
 
   ##
@@ -452,10 +453,12 @@ class UPnP::Service::ContentDirectory < UPnP::Service
   # Builds a Result document for container +object_id+ on +xml+
 
   def result_container(xml, object_id, children, title)
-    xml.tag! 'container', :id => object_id, :parentID => get_parent(object_id),
-                   :restricted => true, :childCount => children do
-      xml.dc :title, title
-      xml.upnp :class, 'object.container'
+    xml.container(:id => object_id,
+                  :parentID => get_parent(object_id),
+                  :restricted => true,
+                  :childCount => children) do
+      xml['dc'].title title
+      xml['upnp'].class_ 'object.container'
     end
   end
 
@@ -469,9 +472,11 @@ class UPnP::Service::ContentDirectory < UPnP::Service
     stat = File.stat object
     extra = nil
 
-    xml.tag! 'item', :id => object_id, :parentID => get_parent(object_id),
-             :restricted => true, :childCount => 0 do
-      xml.upnp :class, item_class(mime_type)
+    xml.item(:id => object_id,
+             :parentID => get_parent(object_id),
+             :restricted => true,
+             :childCount => 0) do
+      xml['upnp'].class_ item_class(mime_type)
 
       case mime_type
       when 'audio/mpeg' then
@@ -479,8 +484,8 @@ class UPnP::Service::ContentDirectory < UPnP::Service
       when 'image/jpeg', 'image/tiff' then
         extra = result_item_exif xml, object_id, object, title, stat
       else
-        xml.dc :title, title
-        xml.dc :date,  stat.ctime.iso8601
+        xml['dc'].title title
+        xml['dc'].date stat.ctime.iso8601
       end
 
       resource xml, object, mime_type, stat, extra
@@ -500,26 +505,26 @@ class UPnP::Service::ContentDirectory < UPnP::Service
     exif = klass.new image
 
     if exif.date_time_original then
-      xml.dc :date, exif.date_time_original.iso8601
+      xml['dc'].date exif.date_time_original.iso8601
     else
-      xml.dc :date, stat.ctime.iso8601
+      xml['dc'].date stat.ctime.iso8601
     end
 
     if exif.image_description then
-      xml.dc :title, exif.image_description
+      xml['dc'].title exif.image_description
     else
-      xml.dc :title, title
+      xml['dc'].title title
     end
 
     if exif.artist then
-      xml.dc :creator, exif.artist
-      xml.upnp :artist, exif.artist
+      xml['dc'].creator exif.artist
+      xml['upnp'].artist exif.artist
     end
 
     exif
   rescue EOFError
-    xml.dc :title, title
-    xml.dc :date,  stat.ctime.iso8601
+    xml['dc'].title title
+    xml['dc'].date stat.ctime.iso8601
   end
 
   ##
@@ -530,48 +535,48 @@ class UPnP::Service::ContentDirectory < UPnP::Service
       return false unless i.hastag?
 
       if i.tag['title'] then
-        xml.dc :title, i.tag['title']
+        xml['dc'].title i.tag['title']
       else
-        xml.dc :title, title
+        xml['dc'].title title
       end
 
       if i.tag['date'] then
-        xml.dc :date, "#{i.tag['year']}-01-01"
+        xml['dc'].date "#{i.tag['year']}-01-01"
       else
-        xml.dc :date, stat.ctime.iso8601
+        xml['dc'].date stat.ctime.iso8601
       end
 
       if i.tag['artist'] then
-        xml.dc :creator, i.tag['artist']
-        xml.upnp :artist, i.tag['artist']
+        xml['dc'].creator i.tag['artist']
+        xml['upnp'].artist i.tag['artist']
       end
 
       if i.tag['genre_s'] =~ /\A\((\d+)\)\z/ then
-        xml.upnp :genre, Mp3Info::GENRES[$1.to_i]
+        xml['upnp'].genre Mp3Info::GENRES[$1.to_i]
       elsif i.tag['genre_s'] then
-        xml.upnp :genre, i.tag['genre']
+        xml['upnp'].genre i.tag['genre']
       end
 
-      xml.upnp :album, i.tag['album'] if i.tag['album']
-      xml.upnp :originalTrackNumber, i.tag['tracknum'] if i.tag['tracknum']
+      xml['upnp'].album i.tag['album'] if i.tag['album']
+      xml['upnp'].originalTrackNumber i.tag['tracknum'] if i.tag['tracknum']
 
-      xml.dc :publisher, i.tag['publisher'] if i.tag['publisher']
+      xml['dc'].publisher i.tag['publisher'] if i.tag['publisher']
 
       if i.tag2.key? 'APIC' then
         _, port, host, addr = Thread.current[:WEBrickSocket].addr
         uri = File.join "http://#{addr}:#{port}", @album_art_path, mp3
 
-        xml.upnp :albumArtURI, 
+        xml['upnp'].albumArtURI(
                  { 'xmlns:dlna' => 'urn:schemas-dlna-org:metadata-1-0',
                    'dlna:profileID' => 'PNG_TN' },
-                 URI.escape(uri)
+                 URI.escape(uri))
       end
 
       i
     end
   rescue Mp3InfoError
-    xml.dc :title, title
-    xml.dc :date, stat.ctime.iso8601
+    xml['dc'].title title
+    xml['dc'].date stat.ctime.iso8601
 
     nil
   end
