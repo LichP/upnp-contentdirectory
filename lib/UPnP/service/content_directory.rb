@@ -122,10 +122,10 @@ class UPnP::Service::ContentDirectory < UPnP::Service
   add_variable 'A_ARG_TYPE_Index',          'ui4'    # 2.5.9
   add_variable 'A_ARG_TYPE_Count',          'ui4'    # 2.5.10
   add_variable 'A_ARG_TYPE_UpdateID',       'ui4'    # 2.5.11
-  add_variable 'A_ARG_Type_TransferID',     'ui4'    # 2.5.12
-  add_variable 'A_ARG_Type_TransferStatus', 'string' # 2.5.13
-  add_variable 'A_ARG_Type_TransferLength', 'string' # 2.5.14
-  add_variable 'A_ARG_Type_TransferTotal',  'string' # 2.5.15
+  add_variable 'A_ARG_TYPE_TransferID',     'ui4'    # 2.5.12
+  add_variable 'A_ARG_TYPE_TransferStatus', 'string' # 2.5.13
+  add_variable 'A_ARG_TYPE_TransferLength', 'string' # 2.5.14
+  add_variable 'A_ARG_TYPE_TransferTotal',  'string' # 2.5.15
   add_variable 'A_ARG_TYPE_TagValueList',   'string' # 2.5.16
   add_variable 'A_ARG_TYPE_URI',            'uri'    # 2.5.17
   add_variable 'SearchCapabilities',        'string' # 2.5.18
