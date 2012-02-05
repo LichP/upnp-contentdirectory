@@ -6,6 +6,7 @@ require 'rubygems'
 require 'nokogiri'
 require 'exifr'
 require 'mp3info'
+require 'filemagic'
 require 'UPnP/service'
 
 ##
@@ -142,8 +143,6 @@ class UPnP::Service::ContentDirectory < UPnP::Service
     @directories_mutex = Mutex.new
 
     @mime_types = {}
-    @mime_arg = '-I'
-    @mime_arg = '-i' unless mime_type(__FILE__) =~ /^text\//
 
     @system_update_id = 0
 
@@ -308,11 +307,12 @@ class UPnP::Service::ContentDirectory < UPnP::Service
 
   def item_class(mime_type)
     case mime_type
-    when /^audio/ then 'object.item.audioItem'
-    when /^image/ then 'object.item.imageItem'
-    when /^text/  then 'object.item.textItem'
-    when /^video/ then 'object.item.videoItem'
-    else               'object.item'
+    when "audio/x-mpegurl" then 'object.item.playlist'
+    when /^audio/          then 'object.item.audioItem'
+    when /^image/          then 'object.item.imageItem'
+    when /^text/           then 'object.item.textItem'
+    when /^video/          then 'object.item.videoItem'
+    else                        'object.item'
     end
   end
 
@@ -350,14 +350,16 @@ class UPnP::Service::ContentDirectory < UPnP::Service
   ##
   # Returns the mime type of +file_name+.
 
-  def mime_type(file_name) # HACK use a real mime magic library
+  def mime_type(file_name)
     mime_type = @mime_types[file_name]
     return mime_type if mime_type
 
-    inn, out, = Open3.popen3 'file', '-b', @mime_arg, file_name
-    inn.close
+    mime_type = if FileMagic.fm.file(file_name) == "M3U playlist text"
+      "audio/x-mpegurl"
+    else
+      FileMagic.fm(:mime_type).file(file_name)
+    end
 
-    mime_type = out.read.strip
     @mime_types[file_name] = mime_type
 
     mime_type
