@@ -160,7 +160,7 @@ class UPnP::Service::ContentDirectory < UPnP::Service
 
     # object_id => parent
     @parents = {}
-
+    
     add_object 'Root', -1
     WEBrick::HTTPUtils::DefaultMimeTypes['mp3'] = 'audio/mpeg'
   end
@@ -431,7 +431,7 @@ class UPnP::Service::ContentDirectory < UPnP::Service
       end
     end
 
-    xml.res attributes, URI.escape(url)
+    xml.res attributes, url
   end
 
   ##
@@ -446,9 +446,16 @@ class UPnP::Service::ContentDirectory < UPnP::Service
 
     object = object.sub root, ''
 
-    File.join "http://#{addr}:#{port}", service_path, root_id.to_s, object
+    build_final_url("http://#{addr}:#{port}", File.join(service_path, root_id.to_s, object))
   end
-
+  
+  ##
+  # Builds final url  string, performing all necessary escaping
+  def build_final_url(scheme_addr_port, path)
+    escaped_path_elements = path.split("/").collect { |path_element| URI.escape(path_element, Regexp.new("[^-_.!~*'()a-zA-Z\\d;/?:@&=+$,]")) }
+    File.join scheme_addr_port, *escaped_path_elements
+  end
+  
   ##
   # Builds a Result document for container +object_id+ on +xml+
 
