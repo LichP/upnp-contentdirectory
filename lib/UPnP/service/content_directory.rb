@@ -202,6 +202,22 @@ class UPnP::Service::ContentDirectory < UPnP::Service
     [nil, @system_update_id]
   end
 
+  ##
+  # Returns the value of the SearchCapabilities. As we are not supporting
+  # Search yet, we had code this to an empty string
+
+  def GetSearchCapabilities
+    [nil, ""]
+  end
+
+  ##
+  # Returns the value of the SortCapabilities. As we are not supporting
+  # sorting yet, we had code this to an empty string
+
+  def GetSortCapabilities
+    [nil, ""]
+  end
+
   # :section: Support implementation
 
   ##
