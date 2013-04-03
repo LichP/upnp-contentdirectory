@@ -371,7 +371,7 @@ class UPnP::Service::ContentDirectory < UPnP::Service
     return mime_type if mime_type
 
     mime_type = case FileMagic.fm.file(file_name)
-    when "M3U playlist text"
+    when /^M3U playlist/
       "audio/x-mpegurl"
     when /^Ogg data, Vorbis audio/
       "audio/ogg"
